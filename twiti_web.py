@@ -540,7 +540,6 @@ def settings():
     return page(f"""
       <div class="header"><b>⚙️ الإعدادات وتفاصيل الح
 
-> ⚠️ The response reached the length limit. Reply **continue** to get the rest.
       <form method="post">
         <input name="amount" type="number" step="any"
                placeholder="💵 المبلغ (ج.س)" required>
@@ -548,10 +547,9 @@ def settings():
       </form>
     """)
 
+
 # ══════════════ التشغيل ══════════════
 if __name__ == "__main__":
     init_db()
-    print("
-💜 تويتي يعمل الآن
-")
+    print("💜 تويتي يعمل الآن")
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
