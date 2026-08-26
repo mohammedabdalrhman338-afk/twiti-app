@@ -531,21 +531,83 @@ def history():
       <table><tr><th>الوقت</th><th>العملية</th><th>المبلغ</th><th>الرصيد</th></tr>{trs}</table>
     """)
 
-
 @app.route("/settings")
 def settings():
     u = current_user()
     if not u:
         return redirect(url_for("login"))
     return page(f"""
-      <div class="header"><b>⚙️ الإعدادات وتفاصيل الح
+      <div class="header"><b>⚙️ الإعدادات وتفاصيل الحساب</b>
+        <a class="logout" href="{url_for('dashboard')}">رجوع ←</a></div>
+      {flash_msg()}
+      <div class="balance-box" style="background:linear-gradient(135deg,#334155,#475569)">
+        <div style="color:#e2e8f0;font-size:.85rem">💳 بطاقتك البنكية</div>
+        <div style="font-size:1.15rem;font-weight:bold;letter-spacing:3px;margin-top:8px">
+          {u['card_number'][:4]} **** **** {u['card_number'][-4:]}
+        </div>
+      </div>
+      <p style="color:#e9d5ff;font-size:.9rem;line-height:2.2;margin-bottom:10px">
+        👤 الاسم: <b>{u['full_name']}</b><br>
+        📱 الهاتف: <b>{u['phone']}</b><br>
+        🏦 رقم الحساب: <b>{u['account_number']}</b><br>
+        📅 عضو منذ: <b>{u['created_at']}</b><br>
+        ⭐ نقاطك: <b>{u['points']:.0f} نقطة</b>
+      </p>
+      <a href="{url_for('change_password')}"><button class="btn small">🔑 تغيير الرقم السري</button></a>
+    """)
 
+
+@app.route("/change_password", methods=["GET", "POST"])
+def change_password():
+    u = current_user()
+    if not u:
+        return redirect(url_for("login"))
+    if request.method == "POST":
+        old = request.form.get("old", "").strip()
+        new = request.form.get("new", "").strip()
+        if not verify_password(old, u["password_hash"]):
+            set_msg("الرقم السري القديم غير صحيح!")
+        elif len(new) < 4:
+            set_msg("الرقم الجديد قصير (4 خانات على الأقل)")
+        else:
+            c = db()
+            c.execute("UPDATE accounts SET password_hash=? WHERE phone=?",
+                      (hash_password(new), u["phone"]))
+            c.commit()
+            set_msg("✅ تم تغيير الرقم السري بنجاح", "ok")
+            return redirect(url_for("settings"))
+        return redirect(url_for("change_password"))
+    return page(f"""
+      <div class="header"><b>🔑 تغيير الرقم السري</b>
+        <a class="logout" href="{url_for('settings')}">رجوع ←</a></div>
+      {flash_msg()}
       <form method="post">
-        <input name="amount" type="number" step="any"
-               placeholder="💵 المبلغ (ج.س)" required>
-        <button class="btn">تنفيذ ✅</button>
+        <input name="old" type="password" placeholder="🔐 الرقم السري القديم" required>
+        <input name="new" type="password" placeholder="🔐 الرقم السري الجديد" required>
+        <button class="btn">حفظ التغيير ✅</button>
       </form>
     """)
+
+
+@app.route("/support")
+def support():
+    return page(f"""
+      <div class="header"><b>💬 الدعم الفني</b>
+        <a class="logout" href="{url_for('home')}">رجوع ←</a></div>
+      {flash_msg()}
+      <div class="balance-box" style="background:linear-gradient(135deg,#16a34a,#0369a1)">
+        <div style="font-size:.85rem;color:#dcfce7">فريق تويتي في خدمتك 24/7</div>
+        <div style="font-size:1.2rem;margin-top:8px">📞 +249 90 464 8008</div>
+      </div>
+      <div class="grid" style="grid-template-columns:1fr 1fr">
+        <a href="https://wa.me/{SUPPORT_WHATSAPP}" target="_blank" style="text-decoration:none">
+          <button class="btn small" style="background:linear-gradient(90deg,#25d366,#128c7e)">💬 واتساب</button></a>
+        <a href="{SUPPORT_FACEBOOK}" target="_blank" style="text-decoration:none">
+          <button class="btn small" style="background:linear-gradient(90deg,#1877f2,#0b5fce)">💙 فيسبوك</button></a
+
+> ⚠️ The connection to the model was interrupted. Reply **continue** to pick up from here.
+
+
 
 
 # ══════════════ التشغيل ══════════════
