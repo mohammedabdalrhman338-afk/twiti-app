@@ -58,6 +58,7 @@ def init_db():
     );
     """)
     conn.commit()
+    conn.close()
 
 
 def hash_password(p):
@@ -81,13 +82,16 @@ def record_tx(phone, tx_type, amount, details="", bal=0):
     c.execute("""INSERT INTO transactions(phone,tx_type,amount,details,balance_after,created_at)
                  VALUES(?,?,?,?,?,?)""", (phone, tx_type, amount, details, bal, now))
     c.commit()
+    c.close()
 
 
 def current_user():
     phone = session.get("phone")
     if not phone:
         return None
-    row = db().execute("SELECT * FROM accounts WHERE phone=?", (phone,)).fetchone()
+    conn = db()
+    row = conn.execute("SELECT * FROM accounts WHERE phone=?", (phone,)).fetchone()
+    conn.close()
     return dict(row) if row else None
 
 
@@ -287,6 +291,7 @@ def register():
             return redirect(url_for("register"))
         conn = db()
         if conn.execute("SELECT 1 FROM accounts WHERE phone=?", (phone,)).fetchone():
+            conn.close()
             set_msg("هذا الرقم مسجل مسبقاً!")
             return redirect(url_for("register"))
         acc_num = f"TWT-{random.randint(100000,999999)}"
@@ -295,6 +300,7 @@ def register():
         conn.execute("INSERT INTO accounts VALUES(?,?,?,?,?,?,?,?,?,?)",
                      (phone, name, hash_password(pwd), 0, 0, acc_num, card, 0, 0, now))
         conn.commit()
+        conn.close()
         record_tx(phone, "فتح حساب 🎉", 0, "", 0)
         set_msg(f"🎉 أهلاً بك يا {name}! رقم حسابك {acc_num} — سجّل دخولك الآن", "ok")
         return redirect(url_for("login"))
@@ -316,7 +322,9 @@ def login():
     if request.method == "POST":
         phone = request.form["phone"].strip()
         pwd = request.form["pwd"].strip()
-        row = db().execute("SELECT * FROM accounts WHERE phone=?", (phone,)).fetchone()
+        conn = db()
+        row = conn.execute("SELECT * FROM accounts WHERE phone=?", (phone,)).fetchone()
+        conn.close()
         if row and verify_password(pwd, row["password_hash"]):
             session["phone"] = phone
             return redirect(url_for("dashboard"))
@@ -378,6 +386,7 @@ def deposit():
             c = db()
             c.execute("UPDATE accounts SET balance=? WHERE phone=?", (nb, u["phone"]))
             c.commit()
+            c.close()
             record_tx(u["phone"], "إيداع ⬇️", amt, "", nb)
             set_msg(f"✅ تم إيداع {amt:,.0f} {CURRENCY}", "ok")
         else:
@@ -407,6 +416,7 @@ def withdraw():
             c = db()
             c.execute("UPDATE accounts SET balance=? WHERE phone=?", (nb, u["phone"]))
             c.commit()
+            c.close()
             record_tx(u["phone"], "سحب ⬆️", amt, f"عمولة {fee:.0f}", nb)
             set_msg(f"✅ تم السحب — رصيدك الآن {nb:,.0f} {CURRENCY}", "ok")
         return redirect(url_for("dashboard"))
@@ -429,10 +439,13 @@ def transfer():
         other = conn.execute("SELECT * FROM accounts WHERE phone=?",
                              (to_phone,)).fetchone()
         if not other:
+            conn.close()
             set_msg("المستلم غير مسجل في تويتي!")
         elif to_phone == u["phone"]:
+            conn.close()
             set_msg("لا يمكنك التحويل لنفسك!")
         elif amt <= 0 or amt + fee > u["balance"]:
+            conn.close()
             set_msg("مبلغ غير صالح أو رصيد غير كافٍ")
         else:
             sb = u["balance"] - amt - fee
@@ -442,6 +455,7 @@ def transfer():
                       (sb, amt / 100, u["phone"]))
             c.execute("UPDATE accounts SET balance=? WHERE phone=?", (rb, to_phone))
             c.commit()
+            c.close()
             record_tx(u["phone"], "تحويل صادر 📤", amt,
                       f"إلى {other['full_name']}", sb)
             record_tx(to_phone, "تحويل وارد 📥", amt,
@@ -478,15 +492,18 @@ def savings():
             c.execute("UPDATE accounts SET balance=?, savings=? WHERE phone=?",
                       (u["balance"] - amt, u["savings"] + amt, u["phone"]))
             c.commit()
+            c.close()
             record_tx(u["phone"], "إدخار 🐖", amt, "", u["balance"] - amt)
             set_msg(f"🐷 أدرت {amt:,.0f} {CURRENCY} في التوفير", "ok")
         elif mode == "take" and 0 < amt <= u["savings"]:
             c.execute("UPDATE accounts SET balance=?, savings=? WHERE phone=?",
                       (u["balance"] + amt, u["savings"] - amt, u["phone"]))
             c.commit()
+            c.close()
             record_tx(u["phone"], "سحب من التوفير 💰", amt, "", u["balance"] + amt)
             set_msg(f"رُجّع {amt:,.0f} {CURRENCY} لمحفظتك", "ok")
         else:
+            c.close()
             set_msg("مبلغ غير صالح")
         return redirect(url_for("savings"))
     return page(f"""
@@ -512,9 +529,11 @@ def history():
     u = current_user()
     if not u:
         return redirect(url_for("login"))
-    rows = db().execute(
+    conn = db()
+    rows = conn.execute(
         "SELECT * FROM transactions WHERE phone=? ORDER BY id DESC LIMIT 30",
         (u["phone"],)).fetchall()
+    conn.close()
     incoming = {"إيداع ⬇️", "تحويل وارد 📥", "سحب من التوفير 💰"}
     trs = ""
     for r in rows:
@@ -574,6 +593,7 @@ def change_password():
             c.execute("UPDATE accounts SET password_hash=? WHERE phone=?",
                       (hash_password(new), u["phone"]))
             c.commit()
+            c.close()
             set_msg("✅ تم تغيير الرقم السري بنجاح", "ok")
             return redirect(url_for("settings"))
         return redirect(url_for("change_password"))
@@ -592,7 +612,7 @@ def change_password():
 @app.route("/support")
 def support():
     u = current_user()
-    back = url_for("dashboard") if u else url("home")
+    back = url_for("dashboard") if u else url_for("home")
     return page(f"""
       <div class="header"><b>💬 الدعم الفني</b>
         <a class="logout" href="{back}">رجوع ←</a></div>
