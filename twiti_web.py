@@ -591,9 +591,11 @@ def change_password():
 
 @app.route("/support")
 def support():
+    u = current_user()
+    back = url_for("dashboard") if u else url("home")
     return page(f"""
       <div class="header"><b>💬 الدعم الفني</b>
-        <a class="logout" href="{url_for('home')}">رجوع ←</a></div>
+        <a class="logout" href="{back}">رجوع ←</a></div>
       {flash_msg()}
       <div class="balance-box" style="background:linear-gradient(135deg,#16a34a,#0369a1)">
         <div style="font-size:.85rem;color:#dcfce7">فريق تويتي في خدمتك 24/7</div>
@@ -603,11 +605,31 @@ def support():
         <a href="https://wa.me/{SUPPORT_WHATSAPP}" target="_blank" style="text-decoration:none">
           <button class="btn small" style="background:linear-gradient(90deg,#25d366,#128c7e)">💬 واتساب</button></a>
         <a href="{SUPPORT_FACEBOOK}" target="_blank" style="text-decoration:none">
-          <button class="btn small" style="background:linear-gradient(90deg,#1877f2,#0b5fce)">💙 فيسبوك</button></a
+          <button class="btn small" style="background:linear-gradient(90deg,#1877f2,#0b5fce)">💙 فيسبوك</button></a>
+      </div>
+      <a href="{SUPPORT_TELEGRAM}" target="_blank" style="text-decoration:none">
+        <button class="btn small" style="background:linear-gradient(90deg,#2aabee,#229ed9)">💜 قناة تيليجرام</button></a>
+    """)
 
-> ⚠️ The connection to the model was interrupted. Reply **continue** to pick up from here.
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    set_msg("👋 تم تسجيل خروجك بنجاح", "ok")
+    return redirect(url_for("home"))
 
 
+def _money_page(title):
+    return page(f"""
+      <div class="header"><b>{title}</b>
+        <a class="logout" href="{url_for('dashboard')}">رجوع ←</a></div>
+      {flash_msg()}
+      <form method="post">
+        <input name="amount" type="number" step="any"
+               placeholder="💵 المبلغ ({CURRENCY})" required>
+        <button class="btn">تنفيذ ✅</button>
+      </form>
+    """)
 
 
 # ══════════════ التشغيل ══════════════
